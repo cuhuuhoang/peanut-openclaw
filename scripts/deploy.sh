@@ -15,7 +15,7 @@ mcporter config add peanut-mcp \
   --env "PEANUT_OPENCLAW_ROOT=$ROOT_DIR" \
   --env "PEANUT_BRIDGE_PYTHON=$ROOT_DIR/.venv/bin/python3" \
   --env "PYTHONPATH=$ROOT_DIR" \
-  --description "Peanut MCP (todo + note + funix)"
+  --description "Peanut MCP (todo + note + funix + weekly routines)"
 
 echo "[ok] deployed peanut-mcp"
 mcporter config get peanut-mcp --json

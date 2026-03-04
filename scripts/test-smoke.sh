@@ -36,4 +36,14 @@ else
   echo "== funix smoke skipped (set FUNIX_TEST_URL to enable) =="
 fi
 
+if [ "${RUN_WEEKLY_SIDE_EFFECTS:-0}" = "1" ]; then
+  echo "== todo_create_weekly_tutor =="
+  mcporter call peanut-mcp.todo_create_weekly_tutor --args '{"listName":"Funix"}'
+
+  echo "== funix_create_weekly_slots =="
+  mcporter call peanut-mcp.funix_create_weekly_slots --args '{}'
+else
+  echo "== weekly side-effect tools skipped (set RUN_WEEKLY_SIDE_EFFECTS=1 to enable) =="
+fi
+
 echo "[ok] smoke tests completed"

@@ -14,6 +14,11 @@ load_env()
 
 LOCAL_TZ = ZoneInfo("Asia/Bangkok")
 DATA_URL = "https://portal.funix.edu.vn/web/dataset/call_kw/fx.aca.live_session/read"
+AVAILABLE_SLOT_URL = "https://portal.funix.edu.vn/web/dataset/call_kw/fx.calendar.available_slot/create"
+PORTAL_CALENDAR_URL = (
+    "https://portal.funix.edu.vn/web"
+    "#menu_id=182&action=1171&model=fx.calendar.available_slot&view_type=calendar&cids=1"
+)
 
 
 def build_funix_headers():
@@ -189,3 +194,115 @@ def create_todo_from_url(url: str, list_name: str = "Funix"):
     }
     todo_message = create_task(task_obj)
     return {"session": session, "todo": {"task": task_obj, "message": todo_message}}
+
+
+def _mentor_id() -> int:
+    return int(os.getenv("FUNIX_MENTOR_ID", "41981"))
+
+
+def _user_id() -> int:
+    return int(os.getenv("FUNIX_UID", "19851"))
+
+
+def create_available_slot(date_str: str, start_time: str, end_time: str, mentor_id: int | None = None, timeout: int = 20):
+    headers = build_funix_headers()
+    mentor = mentor_id or _mentor_id()
+    user_id = _user_id()
+
+    payload = {
+        "id": 15,
+        "jsonrpc": "2.0",
+        "method": "call",
+        "params": {
+            "args": [
+                {
+                    "mentor_id": mentor,
+                    "is_available": True,
+                    "start_datetime": f"{date_str} {start_time}",
+                    "end_datetime": f"{date_str} {end_time}",
+                }
+            ],
+            "model": "fx.calendar.available_slot",
+            "method": "create",
+            "kwargs": {
+                "context": {
+                    "lang": "vi_VN",
+                    "tz": "Asia/Saigon",
+                    "uid": user_id,
+                    "allowed_company_ids": [1],
+                    "params": {
+                        "menu_id": 182,
+                        "action": 1171,
+                        "model": "fx.calendar.available_slot",
+                        "view_type": "calendar",
+                        "cids": 1,
+                    },
+                    "search_default_filter_all_available_slot": 1,
+                    "default_start_datetime": f"{date_str} {start_time}",
+                    "default_end_datetime": f"{date_str} {end_time}",
+                }
+            },
+        },
+    }
+
+    response = requests.post(AVAILABLE_SLOT_URL, headers=headers, json=payload, timeout=timeout)
+    response.raise_for_status()
+    return response.json()
+
+
+def next_week_dates(anchor_date=None):
+    today = anchor_date or datetime.now().date()
+    days_until_monday = (7 - today.weekday()) % 7
+    if days_until_monday == 0:
+        days_until_monday = 7
+    next_monday = today + timedelta(days=days_until_monday)
+    return [(next_monday + timedelta(days=offset)).strftime("%Y-%m-%d") for offset in range(7)]
+
+
+def create_weekly_slots_report(mentor_id: int | None = None):
+    log_lines = []
+    dates = next_week_dates()
+    log_lines.append("Next week's dates (Monday-Sunday):")
+    log_lines.append(", ".join(dates))
+
+    local_tz = ZoneInfo("Asia/Bangkok")
+    mon, tue, wed, thu, fri, sat, sun = range(7)
+    weekly_config = [
+        (mon, [("18:30:00", "20:00:00"), ("20:00:00", "20:50:00")]),
+        (tue, [("18:30:00", "19:00:00")]),
+        (wed, [("18:30:00", "20:00:00"), ("20:00:00", "20:50:00")]),
+        (thu, [("18:30:00", "19:00:00")]),
+        (fri, [("18:30:00", "20:00:00"), ("20:00:00", "21:00:00")]),
+        (sat, [("18:30:00", "19:00:00"), ("20:00:00", "21:00:00"), ("09:30:00", "11:00:00")]),
+        (sun, [("18:30:00", "20:00:00"), ("20:00:00", "20:50:00"), ("09:30:00", "11:00:00")]),
+    ]
+    weekday_to_slots = {weekday: slots for weekday, slots in weekly_config}
+
+    created = 0
+    failed = 0
+
+    for index, day in enumerate(dates):
+        for start_local, end_local in weekday_to_slots.get(index, []):
+            start_local_dt = datetime.strptime(f"{day} {start_local}", "%Y-%m-%d %H:%M:%S").replace(tzinfo=local_tz)
+            end_local_dt = datetime.strptime(f"{day} {end_local}", "%Y-%m-%d %H:%M:%S").replace(tzinfo=local_tz)
+            start_utc = start_local_dt.astimezone(ZoneInfo("UTC"))
+            end_utc = end_local_dt.astimezone(ZoneInfo("UTC"))
+            try:
+                result = create_available_slot(
+                    start_utc.strftime("%Y-%m-%d"),
+                    start_utc.strftime("%H:%M:%S"),
+                    end_utc.strftime("%H:%M:%S"),
+                    mentor_id=mentor_id,
+                )
+                log_lines.append(f"{day} ({start_local}-{end_local}): {result}")
+                created += 1
+            except Exception as exc:
+                log_lines.append(f"{day} ({start_local}-{end_local}): ERROR {exc}")
+                failed += 1
+
+    log_lines.append(PORTAL_CALENDAR_URL)
+    return {
+        "created": created,
+        "failed": failed,
+        "report": "\n".join(log_lines),
+    }

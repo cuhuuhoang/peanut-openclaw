@@ -114,6 +114,26 @@ const tools = [
       },
       required: ["url"]
     }
+  },
+  {
+    name: "funix_create_weekly_slots",
+    description: "Create next-week FUNiX available slots and return report.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mentorId: { type: ["integer", "null"] }
+      }
+    }
+  },
+  {
+    name: "todo_create_weekly_tutor",
+    description: "Create next-week tutor reminder todos.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        listName: { type: "string", default: "Funix" }
+      }
+    }
   }
 ];
 

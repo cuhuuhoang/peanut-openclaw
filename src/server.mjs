@@ -2,7 +2,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,7 +13,7 @@ const pythonBin = process.env.PEANUT_BRIDGE_PYTHON || path.join(repoRoot, ".venv
 const bridgeCli = path.join(repoRoot, "peanut_bridge", "cli.py");
 
 function runBridge(action, payload = {}) {
-  const out = execFileSync(pythonBin, [bridgeCli, action, JSON.stringify(payload)], {
+  const proc = spawnSync(pythonBin, [bridgeCli, action, JSON.stringify(payload)], {
     cwd: repoRoot,
     env: {
       ...process.env,
@@ -21,11 +21,25 @@ function runBridge(action, payload = {}) {
     },
     encoding: "utf-8",
   });
-  const parsed = JSON.parse(out);
-  if (!parsed.ok) {
-    throw new Error(parsed.error || "Bridge call failed");
+
+  const stdout = (proc.stdout || "").trim();
+  const stderr = (proc.stderr || "").trim();
+
+  if (!stdout) {
+    return {
+      ok: false,
+      error: stderr || `Bridge produced no output (exit ${proc.status ?? "unknown"})`,
+    };
   }
-  return parsed.data;
+
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    return {
+      ok: false,
+      error: `Invalid bridge JSON: ${stdout}${stderr ? ` | stderr: ${stderr}` : ""}`,
+    };
+  }
 }
 
 const tools = [
@@ -77,6 +91,29 @@ const tools = [
     name: "note_all",
     description: "List all notes sorted by updated time desc.",
     inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "funix_extract_session_from_url",
+    description: "Extract FUNiX session details from portal URL.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string" }
+      },
+      required: ["url"]
+    }
+  },
+  {
+    name: "funix_create_todo_from_url",
+    description: "Extract FUNiX session and create To Do reminder.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string" },
+        listName: { type: "string", default: "Funix" }
+      },
+      required: ["url"]
+    }
   }
 ];
 
@@ -102,12 +139,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new Error(`Unknown tool: ${name}`);
   }
 
-  const data = runBridge(name, args);
+  const result = runBridge(name, args);
+  if (!result.ok) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ error: result.error }, null, 2)
+        }
+      ]
+    };
+  }
+
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify(data, null, 2)
+        text: JSON.stringify(result.data, null, 2)
       }
     ]
   };

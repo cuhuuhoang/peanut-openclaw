@@ -26,4 +26,14 @@ mcporter call peanut-mcp.todo_create_task --args "{\"listName\":\"Personal\",\"t
 echo "== todo_set_my_day =="
 mcporter call peanut-mcp.todo_set_my_day --args '{}'
 
+if [ -n "${FUNIX_TEST_URL:-}" ]; then
+  echo "== funix_extract_session_from_url =="
+  mcporter call peanut-mcp.funix_extract_session_from_url --args "{\"url\":\"$FUNIX_TEST_URL\"}"
+
+  echo "== funix_create_todo_from_url =="
+  mcporter call peanut-mcp.funix_create_todo_from_url --args "{\"url\":\"$FUNIX_TEST_URL\",\"listName\":\"Funix\"}"
+else
+  echo "== funix smoke skipped (set FUNIX_TEST_URL to enable) =="
+fi
+
 echo "[ok] smoke tests completed"

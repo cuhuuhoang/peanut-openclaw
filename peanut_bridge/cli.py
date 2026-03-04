@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 from peanut_bridge.note_dao import save as save_note, find as find_notes, get_all as get_all_notes
 from peanut_bridge.note_models import Note
 from peanut_bridge.todo_api import create_task, set_my_day
+from peanut_bridge.funix_api import extract_session_from_url, create_todo_from_url
 
 
 def _ok(data):
@@ -96,6 +97,23 @@ def main():
                     ],
                 }
             )
+            return
+
+        if action == "funix_extract_session_from_url":
+            url = (payload.get("url") or "").strip()
+            if not url:
+                raise ValueError("url is required")
+            data = extract_session_from_url(url)
+            _ok(data)
+            return
+
+        if action == "funix_create_todo_from_url":
+            url = (payload.get("url") or "").strip()
+            if not url:
+                raise ValueError("url is required")
+            list_name = (payload.get("listName") or "Funix").strip() or "Funix"
+            data = create_todo_from_url(url, list_name)
+            _ok(data)
             return
 
         raise ValueError(f"unknown action: {action}")

@@ -8,6 +8,8 @@ Custom MCP server for OpenClaw migration (phase 1): todo + note.
 - `note_save`
 - `note_find`
 - `note_all`
+- `funix_extract_session_from_url`
+- `funix_create_todo_from_url`
 
 ## Quick start
 ```bash

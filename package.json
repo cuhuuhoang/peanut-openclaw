@@ -1,0 +1,13 @@
+{
+  "name": "peanut-openclaw",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test:smoke": "bash scripts/test-smoke.sh"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.4"
+  }
+}
